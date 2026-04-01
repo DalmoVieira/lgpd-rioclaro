@@ -1,0 +1,19 @@
+- [x] Initialize project structure (Frontend & Backend)
+- [x] Setup Docker environment (PostgreSQL, Nginx)
+- [x] Implement Portal da Privacidade (Public Frontend)
+- [x] Implement Atendimento ao Titular (DSR)
+- [x] Implement Internal Dashboard (DPO)
+- [x] Backend REST API (DSR + ROPA endpoints)
+- [x] Gestão de Usuários e Segurança
+    - [x] Atualizar schema de usuários (Token de recuperação)
+    - [x] Endpoint de cadastro de servidores (Admin)
+    - [x] Endpoint de troca de senha e esqueci minha senha
+    - [x] Conectar NextAuth ao PostgreSQL
+    - [x] Frontend: Gestão de Usuários (Admin)
+    - [x] Frontend: Perfil e Troca de Senha
+    - [x] Frontend: Esqueci minha senha
+- [x] Responsividade Total (RWD)
+    - [x] Header/Menu Mobile (Hamburger)
+    - [x] Layouts de grade responsivos
+    - [x] Tabelas com scroll horizontal
+- [x] SEO e Final Polish
