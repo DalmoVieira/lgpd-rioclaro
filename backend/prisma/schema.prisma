@@ -1,0 +1,731 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  CIDADAO
+  DPO
+  COMITE_PRIVACIDADE
+  GESTOR_SETORIAL
+  OPERADOR
+  ETIR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum DataType {
+  PESSOAL
+  SENSIVEL
+}
+
+enum LegalBasis {
+  CONSENTIMENTO
+  OBRIGACAO_LEGAL
+  EXECUCAO_DE_POLITICAS_PUBLICAS
+  ESTUDO_POR_ORGAO_DE_PESQUISA
+  EXECUCAO_DE_CONTRATO
+  EXERCICIO_REGULAR_DE_DIREITOS
+  PROTECAO_DA_VIDA
+  TUTELA_DA_SAUDE
+  INTERESSE_LEGITIMO
+  PROTECAO_DO_CREDITO
+}
+
+enum ConsentStatus {
+  CONSENTIDO
+  NAO_CONSENTIDO
+  REVOGADO
+  NAO_EXIGIDO_PELA_LEI
+  PENDENTE
+}
+
+enum RiskLevel {
+  BAIXO
+  MEDIO
+  ALTO
+  CRITICO
+}
+
+enum Severity {
+  BAIXO
+  MEDIO
+  ALTO
+  CRITICO
+}
+
+enum Priority {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum DataSubjectRequestType {
+  ACCESS
+  CORRECTION
+  DELETION
+  PORTABILITY
+  REVOCATION
+}
+
+enum BrandingAssetType {
+  COAT_OF_ARMS
+  FAVICON
+  LOGO
+  LOGO_DARK
+  BANNER
+}
+
+enum WorkflowProcessType {
+  DATA_SUBJECT_REQUEST
+  ACTION_PLAN
+  SECURITY_INCIDENT
+  RISK_ASSESSMENT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  STATUS_CHANGE
+  WORKFLOW_TRANSITION
+  RESPONSE
+  SETTINGS_CHANGE
+  BRANDING_CHANGE
+  TENANT_CREATE
+  TENANT_UPDATE
+  TENANT_DEACTIVATE
+  WORKFLOW_CHANGE
+  DOCUMENT_GENERATE
+  DOCUMENT_VERSION
+  CONTEXT_SWITCH
+}
+
+enum DocumentType {
+  RESPOSTA_TITULAR
+  NOTIFICACAO_ANPD
+  COMUNICACAO_TITULARES
+  RIPD_PDF
+  POLITICA_PRIVACIDADE
+  TERMOS_DE_USO
+  COMPROVANTE_CONSENTIMENTO
+  OUTRO
+}
+
+enum PolicyType {
+  PRIVACY_POLICY
+  TERMS_OF_USE
+}
+
+// ==================== TENANT ====================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  domain    String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings       TenantSettings?
+  brandingAssets TenantBrandingAsset[]
+  users          User[]
+  departments    Department[]
+  auditLogs      AuditLog[]
+  dataSubjectRequests    DataSubjectRequest[]
+  dataProcessingActivities DataProcessingActivity[]
+  dataProcessingCategories DataProcessingCategory[]
+  riskAssessments  RiskAssessment[]
+  ripdReports      RIPDReport[]
+  securityIncidents SecurityIncident[]
+  actionPlans      ActionPlan[]
+  attachments      Attachment[]
+  workflowDefinitions WorkflowDefinition[]
+  workflowExecutions  WorkflowExecution[]
+  privacyPolicyVersions PrivacyPolicyVersion[]
+  cookieConsentRecords  CookieConsentRecord[]
+  generatedDocuments    GeneratedDocument[]
+  documentTemplates     DocumentTemplate[]
+  systemSettings        SystemSetting[]
+  incidentNotifications IncidentNotification[]
+
+  @@map("tenants")
+}
+
+model TenantSettings {
+  id        String @id @default(uuid())
+  tenantId  String @unique
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+
+  // Dados institucionais
+  officialName    String?
+  shortName       String?
+  municipality    String?
+  city            String?
+  state           String?
+  address         String?
+  cabinetAddress  String?
+  dpoAddress      String?
+  zipCode         String?
+  cnpj            String?
+  phone           String?
+  whatsapp        String?
+  email           String?
+  dpoName         String?
+  dpoEmail        String?
+  dpoPhone        String?
+  website         String?
+  acronym         String?
+  slogan          String?
+  headerText      String?
+  footerText      String?
+  businessHours   String?
+
+  // Cores
+  primaryColor    String?  @default("#1e40af")
+  secondaryColor  String?  @default("#1e3a5f")
+  accentColor     String?  @default("#f59e0b")
+  backgroundColor String?  @default("#ffffff")
+
+  // Links públicos
+  privacyPolicyUrl String?
+  termsOfUseUrl    String?
+  dataSubjectChannelUrl String?
+
+  // Redes sociais (JSON)
+  socialLinks     Json?    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant_settings")
+}
+
+model TenantBrandingAsset {
+  id        String           @id @default(uuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  type      BrandingAssetType
+  filePath  String
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime         @default(now())
+
+  @@unique([tenantId, type])
+  @@map("tenant_branding_assets")
+}
+
+// ==================== USERS & RBAC ====================
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  email        String
+  passwordHash String
+  name         String
+  role         Role     @default(OPERADOR)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  auditLogs              AuditLog[]
+  dataSubjectRequests    DataSubjectRequest[]   @relation("AssignedRequests")
+  riskAssessments        RiskAssessment[]
+  ripdReports            RIPDReport[]
+  securityIncidents      SecurityIncident[]     @relation("ReportedIncidents")
+  actionPlans            ActionPlan[]
+  attachments            Attachment[]
+  workflowExecutionHistories WorkflowExecutionHistory[]
+  generatedDocuments     GeneratedDocument[]
+  privacyPolicyVersions  PrivacyPolicyVersion[]
+  dataProcessingActivities DataProcessingActivity[] @relation("CreatedActivities")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  acronym   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                    User[]
+  dataProcessingActivities DataProcessingActivity[]
+
+  @@unique([tenantId, name])
+  @@map("departments")
+}
+
+// ==================== WORKFLOW ENGINE ====================
+
+model WorkflowDefinition {
+  id          String              @id @default(uuid())
+  tenantId    String
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  processType WorkflowProcessType
+  name        String
+  key         String
+  version     Int                 @default(1)
+  isActive    Boolean             @default(true)
+  isDefault   Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  steps       WorkflowStep[]
+  transitions WorkflowTransition[]
+  executions  WorkflowExecution[]
+
+  @@unique([tenantId, processType, key, version])
+  @@map("workflow_definitions")
+}
+
+model WorkflowStep {
+  id                   String             @id @default(uuid())
+  workflowDefinitionId String
+  workflowDefinition   WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Cascade)
+  key                  String
+  label                String
+  color                String?            @default("#6b7280")
+  order                Int                @default(0)
+  isInitial            Boolean            @default(false)
+  isFinal              Boolean            @default(false)
+  slaHours             Int?
+  requiresComment      Boolean            @default(false)
+  requiresAttachment   Boolean            @default(false)
+  requiresApproval     Boolean            @default(false)
+  requiresOpinion      Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+
+  transitionsFrom WorkflowTransition[] @relation("FromStep")
+  transitionsTo   WorkflowTransition[] @relation("ToStep")
+  currentExecutions WorkflowExecution[] @relation("CurrentStep")
+  historyFrom     WorkflowExecutionHistory[] @relation("HistoryFromStep")
+  historyTo       WorkflowExecutionHistory[] @relation("HistoryToStep")
+
+  @@map("workflow_steps")
+}
+
+model WorkflowTransition {
+  id                   String             @id @default(uuid())
+  workflowDefinitionId String
+  workflowDefinition   WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Cascade)
+  fromStepId           String
+  fromStep             WorkflowStep       @relation("FromStep", fields: [fromStepId], references: [id], onDelete: Cascade)
+  toStepId             String
+  toStep               WorkflowStep       @relation("ToStep", fields: [toStepId], references: [id], onDelete: Cascade)
+  allowedRoles         Role[]
+  triggerActions       Json?              @default("[]")
+  createdAt            DateTime           @default(now())
+
+  @@map("workflow_transitions")
+}
+
+model WorkflowExecution {
+  id                     String             @id @default(uuid())
+  tenantId               String
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id])
+  workflowDefinitionId   String
+  workflowDefinition     WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  entityType             String
+  entityId               String
+  currentStepId          String
+  currentStep            WorkflowStep       @relation("CurrentStep", fields: [currentStepId], references: [id])
+  startedAt              DateTime           @default(now())
+  completedAt            DateTime?
+  createdAt              DateTime           @default(now())
+
+  history WorkflowExecutionHistory[]
+
+  @@map("workflow_executions")
+}
+
+model WorkflowExecutionHistory {
+  id           String            @id @default(uuid())
+  executionId  String
+  execution    WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  fromStepId   String?
+  fromStep     WorkflowStep?     @relation("HistoryFromStep", fields: [fromStepId], references: [id])
+  toStepId     String
+  toStep       WorkflowStep      @relation("HistoryToStep", fields: [toStepId], references: [id])
+  userId       String
+  user         User              @relation(fields: [userId], references: [id])
+  comment      String?
+  attachmentId String?
+  createdAt    DateTime          @default(now())
+
+  @@map("workflow_execution_histories")
+}
+
+// ==================== DATA SUBJECT REQUESTS ====================
+
+model DataSubjectRequest {
+  id                  String                 @id @default(uuid())
+  tenantId            String
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id])
+  protocol            String
+  type                DataSubjectRequestType
+  requesterName       String
+  requesterEmail      String
+  requesterCpf        String?
+  requesterPhone      String?
+  description         String
+  status              String                 @default("ABERTO")
+  assignedToId        String?
+  assignedTo          User?                  @relation("AssignedRequests", fields: [assignedToId], references: [id])
+  workflowExecutionId String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  messages DataSubjectRequestMessage[]
+
+  @@unique([tenantId, protocol])
+  @@map("data_subject_requests")
+}
+
+model DataSubjectRequestMessage {
+  id           String             @id @default(uuid())
+  requestId    String
+  request      DataSubjectRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  senderType   String
+  senderName   String?
+  message      String
+  attachmentId String?
+  createdAt    DateTime           @default(now())
+
+  @@map("data_subject_request_messages")
+}
+
+// ==================== DATA INVENTORY ====================
+
+model DataProcessingActivity {
+  id                    String       @id @default(uuid())
+  tenantId              String
+  tenant                Tenant       @relation(fields: [tenantId], references: [id])
+  name                  String
+  departmentId          String?
+  department            Department?  @relation(fields: [departmentId], references: [id])
+  purpose               String?
+  dataSubjectCategory   String?
+  dataCategory          String?
+  dataType              DataType
+  source                String?
+  storage               String?
+  sharing               String?
+  retention             String?
+  disposal              String?
+  controller            String?
+  operator              String?
+  systems               String?
+  legalBasis            LegalBasis
+  consentStatus         ConsentStatus @default(PENDENTE)
+  internationalTransfer Boolean       @default(false)
+  securityMeasures      String?
+  isActive              Boolean       @default(true)
+  createdByUserId       String
+  createdByUser         User          @relation("CreatedActivities", fields: [createdByUserId], references: [id])
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  riskAssessments RiskAssessment[]
+  ripdReports     RIPDReport[]
+
+  @@map("data_processing_activities")
+}
+
+model DataProcessingCategory {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@map("data_processing_categories")
+}
+
+// ==================== RISK & RIPD ====================
+
+model RiskAssessment {
+  id                       String                @id @default(uuid())
+  tenantId                 String
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id])
+  dataProcessingActivityId String?
+  dataProcessingActivity   DataProcessingActivity? @relation(fields: [dataProcessingActivityId], references: [id])
+  title                    String
+  description              String?
+  riskLevel                RiskLevel
+  likelihood               Int?
+  impact                   Int?
+  existingSafeguards       String?
+  mitigationPlan           String?
+  responsibleUserId        String?
+  responsibleUser          User?                 @relation(fields: [responsibleUserId], references: [id])
+  workflowExecutionId      String?
+  ripdRecommended          Boolean               @default(false)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+
+  ripdReports RIPDReport[]
+  actionPlans ActionPlan[]
+
+  @@map("risk_assessments")
+}
+
+model RIPDReport {
+  id                       String                @id @default(uuid())
+  tenantId                 String
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id])
+  riskAssessmentId         String?
+  riskAssessment           RiskAssessment?       @relation(fields: [riskAssessmentId], references: [id])
+  dataProcessingActivityId String?
+  dataProcessingActivity   DataProcessingActivity? @relation(fields: [dataProcessingActivityId], references: [id])
+  treatmentDescription     String?
+  dataCategories           String?
+  purpose                  String?
+  legalBasis               String?
+  identifiedRisks          Json?                 @default("[]")
+  safeguards               String?
+  mitigationPlan           String?
+  responsibles             String?
+  revisionHistory          Json?                 @default("[]")
+  status                   String                @default("RASCUNHO")
+  generatedDocumentId      String?
+  createdByUserId          String?
+  createdByUser            User?                 @relation(fields: [createdByUserId], references: [id])
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+
+  @@map("ripd_reports")
+}
+
+// ==================== SECURITY INCIDENTS ====================
+
+model SecurityIncident {
+  id                          String    @id @default(uuid())
+  tenantId                    String
+  tenant                      Tenant    @relation(fields: [tenantId], references: [id])
+  title                       String
+  description                 String?
+  detectedAt                  DateTime
+  dataCategories              String?
+  estimatedAffectedCount      Int?
+  severity                    Severity
+  status                      String    @default("REGISTRADO")
+  notifiedAnpd                Boolean   @default(false)
+  anpdNotificationDate        DateTime?
+  notifiedSubjects            Boolean   @default(false)
+  subjectNotificationDate     DateTime?
+  nonNotificationJustification String?
+  anpdDeadline                DateTime?
+  workflowExecutionId         String?
+  reportedByUserId            String
+  reportedByUser              User      @relation("ReportedIncidents", fields: [reportedByUserId], references: [id])
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  notifications IncidentNotification[]
+  actionPlans   ActionPlan[]
+
+  @@map("security_incidents")
+}
+
+model IncidentNotification {
+  id            String           @id @default(uuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  incidentId    String
+  incident      SecurityIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  type          String
+  sentAt        DateTime?
+  content       String?
+  recipientInfo String?
+  createdAt     DateTime         @default(now())
+
+  @@map("incident_notifications")
+}
+
+// ==================== ACTION PLANS ====================
+
+model ActionPlan {
+  id                  String            @id @default(uuid())
+  tenantId            String
+  tenant              Tenant            @relation(fields: [tenantId], references: [id])
+  title               String
+  description         String?
+  linkedEntityType    String?
+  linkedEntityId      String?
+  riskAssessmentId    String?
+  riskAssessment      RiskAssessment?   @relation(fields: [riskAssessmentId], references: [id])
+  securityIncidentId  String?
+  securityIncident    SecurityIncident? @relation(fields: [securityIncidentId], references: [id])
+  responsibleUserId   String?
+  responsibleUser     User?             @relation(fields: [responsibleUserId], references: [id])
+  priority            Priority          @default(MEDIA)
+  dueDate             DateTime?
+  status              String            @default("ABERTO")
+  workflowExecutionId String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  evidences ActionPlanEvidence[]
+
+  @@map("action_plans")
+}
+
+model ActionPlanEvidence {
+  id           String     @id @default(uuid())
+  actionPlanId String
+  actionPlan   ActionPlan @relation(fields: [actionPlanId], references: [id], onDelete: Cascade)
+  description  String?
+  attachmentId String?
+  createdAt    DateTime   @default(now())
+
+  @@map("action_plan_evidences")
+}
+
+// ==================== ATTACHMENTS ====================
+
+model Attachment {
+  id             String   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  fileName       String
+  filePath       String
+  mimeType       String
+  sizeBytes      Int
+  uploadedByUserId String?
+  uploadedByUser User?    @relation(fields: [uploadedByUserId], references: [id])
+  entityType     String?
+  entityId       String?
+  createdAt      DateTime @default(now())
+
+  @@map("attachments")
+}
+
+// ==================== DOCUMENTS ====================
+
+model DocumentTemplate {
+  id        String       @id @default(uuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  name      String
+  type      DocumentType
+  content   String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  generatedDocuments GeneratedDocument[]
+
+  @@map("document_templates")
+}
+
+model GeneratedDocument {
+  id           String            @id @default(uuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  templateId   String?
+  template     DocumentTemplate? @relation(fields: [templateId], references: [id])
+  type         DocumentType
+  title        String
+  filePath     String?
+  metadata     Json?             @default("{}")
+  version      Int               @default(1)
+  entityType   String?
+  entityId     String?
+  generatedByUserId String?
+  generatedByUser   User?        @relation(fields: [generatedByUserId], references: [id])
+  createdAt    DateTime          @default(now())
+
+  @@map("generated_documents")
+}
+
+// ==================== PRIVACY POLICIES ====================
+
+model PrivacyPolicyVersion {
+  id              String     @id @default(uuid())
+  tenantId        String
+  tenant          Tenant     @relation(fields: [tenantId], references: [id])
+  type            PolicyType
+  version         String
+  title           String
+  content         String
+  publishedAt     DateTime?
+  isActive        Boolean    @default(false)
+  createdByUserId String?
+  createdByUser   User?      @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@map("privacy_policy_versions")
+}
+
+model CookieConsentRecord {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  sessionId    String?
+  ipAddress    String?
+  consentGiven Boolean
+  categories   Json?    @default("{}")
+  createdAt    DateTime @default(now())
+
+  @@map("cookie_consent_records")
+}
+
+// ==================== AUDIT LOG ====================
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  tenantId   String?
+  tenant     Tenant?     @relation(fields: [tenantId], references: [id])
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id])
+  action     AuditAction
+  entity     String
+  entityId   String?
+  diff       Json?
+  ipAddress  String?
+  createdAt  DateTime    @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entity])
+  @@map("audit_logs")
+}
+
+// ==================== SYSTEM SETTINGS ====================
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  key       String
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@map("system_settings")
+}
