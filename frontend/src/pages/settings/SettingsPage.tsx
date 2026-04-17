@@ -23,8 +23,12 @@ export default function SettingsPage() {
             <div>
               <h3 className="font-semibold text-gray-900 mb-3">Informações do Município</h3>
               <dl className="space-y-2 text-sm">
-                <div><dt className="text-gray-500">Município</dt><dd className="font-medium">{settings.municipalityName}</dd></div>
+                {settings.officialName && <div><dt className="text-gray-500">Nome Oficial</dt><dd className="font-medium">{settings.officialName}</dd></div>}
+                <div><dt className="text-gray-500">Município</dt><dd className="font-medium">{settings.municipality}</dd></div>
                 <div><dt className="text-gray-500">Estado</dt><dd className="font-medium">{settings.state}</dd></div>
+                {settings.cnpj && <div><dt className="text-gray-500">CNPJ</dt><dd className="font-medium">{settings.cnpj}</dd></div>}
+                {settings.address && <div><dt className="text-gray-500">Endereço</dt><dd className="font-medium">{settings.address}</dd></div>}
+                {settings.email && <div><dt className="text-gray-500">E-mail</dt><dd className="font-medium">{settings.email}</dd></div>}
                 <div><dt className="text-gray-500">Cor primária</dt><dd className="flex items-center gap-2">
                   <span className="w-5 h-5 rounded" style={{ backgroundColor: settings.primaryColor }} />
                   {settings.primaryColor}

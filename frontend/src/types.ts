@@ -31,9 +31,17 @@ export interface TenantSettings {
   id: string;
   tenantId: string;
   primaryColor: string;
+  secondaryColor?: string;
+  accentColor?: string;
   logoUrl?: string;
-  municipalityName: string;
+  officialName?: string;
+  shortName?: string;
+  municipality: string;
+  city?: string;
   state: string;
+  address?: string;
+  cnpj?: string;
+  email?: string;
   dpoName: string;
   dpoEmail: string;
   dpoPhone?: string;
